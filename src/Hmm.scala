@@ -32,8 +32,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     return observations
   }
 
-  /* FUTURE WORK: 1) add probabilities in log space to prevent underflow
-   *              2) add map so that obs sequence can be other than Int
+  /* FUTURE WORK: 1) scale probabilities to prevent underflow
    *
    * This function implements the forward algorithm (given a set of
    * observations, it returns the probability of that set of observations
@@ -60,17 +59,19 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
                         // of being in a given state after having seen the
                         // first N tokens of the observation sequence
     obsItr    = 1
-    currState = 1
     while (obsItr < obsSeq.length) {
+
+      currState = 0
       while (currState < numStates) {
+
 	alpha    = 0.0
 	stateItr = 0
-
 	while (stateItr < numStates) {
 	  // I should replace the line below with a dot product
 	  alpha    = alpha + prevTrellis(stateItr) * T(stateItr)(currState)
 	  stateItr = stateItr + 1
 	}
+
 	alpha = alpha * A(currState)(obsSeq(obsItr))
 	currTrellis(currState) = alpha
 	currState = currState + 1
@@ -95,6 +96,74 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     }
 
     return sum
+  }
+
+  /* FUTURE WORK: 1) Work in log-space
+   *              2) better names!
+   *
+   * Implements the Viterbi algorithm for Hmms.  Given an observation sequence
+   * and an Hmm, calculate the most likely sequence of states to have
+   * generated the sequence
+   *
+   * PRECONDITION: All values in obsSeq are valid observations (i.e. every
+   * observation is an integer less than the total number of distinct
+   * observations.
+   *
+   * Returns a sequence of ints corresponding to the sequence of most likely
+   * states to have produced this sequence
+   */
+  def decode(obsSeq: Seq[Int]): Seq[Int] = {
+    var prevTrellis = new Array[Double](numStates)
+    var currTrellis = new Array[Double](numStates)
+    var probOfState = new Array[Double](numStates)
+    var viterbiPath = new Array[Array[Int]](numStates)  //optimal path
+
+    var obsItr = 0
+    var currState = 0
+    var stateItr  = 0
+    while (stateItr < numStates) {
+      viterbiPath(stateItr) = new Array[Int](obsSeq.length)
+      prevTrellis(stateItr) = pi(stateItr) * A(stateItr)(obsSeq(obsItr))
+      stateItr += 1
+    }
+
+    obsItr = 1
+    while (obsItr < obsSeq.length) {
+
+      currState = 0
+      while (currState < numStates) {
+
+	stateItr = 0
+	while (stateItr < numStates) {
+	  probOfState(stateItr) = prevTrellis(stateItr)*T(stateItr)(currState)
+	  stateItr += 1
+	}
+
+	currTrellis(currState) = probOfState.max * A(currState)(obsSeq(obsItr))
+
+	// get index of largest probability
+	viterbiPath(currState)(obsItr) = probOfState.zipWithIndex.max._2
+	currState += 1
+      }
+
+      stateItr = 0
+      while (stateItr < numStates) {
+	prevTrellis(stateItr) = currTrellis(stateItr)
+	stateItr += 1
+      }
+      obsItr += 1
+    }
+
+    var hiddenStateSeq = new Array[Int](obsSeq.length)
+    var maxProbIndex   = currTrellis.zipWithIndex.max._2
+    obsItr = obsSeq.length - 1
+    while (obsItr >= 0) {
+      hiddenStateSeq(obsItr) = maxProbIndex
+      maxProbIndex = viterbiPath(maxProbIndex)(obsItr)
+      obsItr -= 1
+    }
+
+    return hiddenStateSeq
   }
 
   /* Implemenmts inverse transform sampling from an unnormalized distribution
