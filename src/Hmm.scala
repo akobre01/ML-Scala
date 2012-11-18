@@ -1,5 +1,4 @@
 import scala.util.Random
-
 /* pi is an M length array of unnormalized initial state probabilities
  * T is an MxM matrix of state transition probabilities (Transition Matrix)
  * A is an MxO matrix of emission probabilities where O is the number
@@ -14,28 +13,31 @@ import scala.util.Random
 class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 	  val A:  Array[Array[Double]]) {
 
+  assert(T.length == T(0).length) // Assume all rows of T are T(0).length
+  assert(A.length == T.length)
+
   val rand = new Random()
   val numStates  = T.length
   val numActions = A.length
 
   def genObsSeq(steps: Int): Seq[Int] = {
-    val observations: Array[Int] = new Array[Int](steps)
+    val observations = new Array[Int](steps)
 
     var step = 0
     var currState = inverseSample(pi)
-    while(step < steps) {
+    while (step < steps) {
       observations(step) = inverseSample(A(currState))
       currState = inverseSample(T(currState))
-      step = step + 1
+      step += 1
     }
 
     return observations
   }
 
-  /* FUTURE WORK: 1) scale probabilities to prevent underflow
+  /* FUTURE WORK: 1) get rid of while loops
    *
    * This function implements the forward algorithm (given a set of
-   * observations, it returns the probability of that set of observations
+   * observations, it returns the log probability of that set of observations
    * having come from THIS Hmm).
    *
    * PRECONDITIONS:
@@ -76,24 +78,23 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 	  // I should replace the line below with a dot product
 	  alphas(currState) = alphas(currState) + prevTrellis(stateItr) *
 			      T(stateItr)(currState)
-	  stateItr = stateItr + 1
+	  stateItr += 1
 	}
 
 	alphas(currState) = alphas(currState) * A(currState)(obsSeq(obsItr))
-	currState = currState + 12
+	currState += 1
       }
 
       alphaSum  = alphas.sum
       currState = 0
       while(currState < numStates) {
 	currTrellis(currState) = alphas(currState) / alphaSum  // scaling
-	logScale += math.log(alphaSum)
-	currState = currState + 1
+	logScale  += math.log(alphaSum)
+	currState += 1
       }
 
       // NOTE: at this point, currTrellis(i) holds the SCALED probability of
       //       being in state i given the first obsIter tokens in obsSeq
-
       stateItr = 0
       while (stateItr < numStates) {
 	prevTrellis(stateItr) = currTrellis(stateItr)
@@ -109,8 +110,8 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
       stateItr = stateItr + 1
     }
 
-    // Now, subtract off scaling
-    return math.log(sumProb) - logScale
+    // Now, reset scaling (at each step we multiply by
+    return math.log(sumProb) + logScale
   }
 
   /* FUTURE WORK: 1) Better Names
@@ -196,13 +197,13 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 
     var i = 0
     while(i < dSize) {
-      prev = prev + dist(i)
-      if (sample < prev) {
+      prev += dist(i)
+      if (sample <= prev) {
 	return i
       }
-      i = i + 1
+      i += 1
     }
-    return dSize
+    return dSize  // Error!!
   }
 }
 

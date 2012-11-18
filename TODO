@@ -4,7 +4,7 @@ what needs to happen:
 * Hmm.scala
   - Come up with some better names than currTrellis and prev Trellis
 
-* Hmm.scala/forward
+o Hmm.scala/forward
    - I need to make the algorithm robust to underflow (scaling?)
 
 o Hmm.scala/decode
@@ -26,3 +26,6 @@ o Hmm.scala/decode
 
 * Hmm.scala
   - Add assertions to check pre/post conditions and invariants
+
+* Hmm.scala/inverseSample
+  - Have it error out if it going through the while loop without returning
