@@ -1,22 +1,28 @@
 Todos are currently marked in the files themselves but here is a list of
 what needs to happen:
 
-0) Hmm.scala
-   - Come up with some better names than currTrellis and prev Trellis
+* Hmm.scala
+  - Come up with some better names than currTrellis and prev Trellis
 
-1) Hmm.scala/forward
+* Hmm.scala/forward
    - I need to make the algorithm robust to underflow (scaling?)
 
-2) Hmm.scala/decode
+o Hmm.scala/decode
    - Work in log-space (to avoid underflow)
 
-3) Hmm.scala
+* Hmm.scala
    - write unit tests for functions:
      forward: build N random Hmms; generate sequences from each; test to make
      	      sure that, using forward, each sequence is most likely to have
 	      come from the Hmm that generated it
    - decode:  Design a unit test here...
 
-4) Hmm.scala
+* Hmm.scala
    - Implement a learning algorithm for learning parameters (i.e. transition
      and observation matrices)
+
+* Hmm.scala
+  - Make code more functional (avoid all of those nasty while loops)
+
+* Hmm.scala
+  - Add assertions to check pre/post conditions and invariants

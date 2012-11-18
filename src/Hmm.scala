@@ -46,7 +46,8 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   def forward(obsSeq: Seq[Int]): Double = {
     var prevTrellis = new Array[Double](numStates)
     var currTrellis = new Array[Double](numStates)
-
+    var alphas      = new Array[Double](numStates) // stores prob of being in
+						   // state i after N steps
     var obsItr    = 0
     var stateItr  = 0   // generic itr
     var currState = 0
@@ -55,30 +56,43 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
       stateItr = stateItr + 1
     }
 
-    var alpha = 0.0     // alpha stores partial sums of the probability of
-                        // of being in a given state after having seen the
-                        // first N tokens of the observation sequence
+    // scale probs to prevent underflow
+    var alphaSum = 0.0  // stores the sum of alpha(i)'s; used for scaling
+    var logScale = 0.0  // total log scaling so far
+
+    alphaSum    = prevTrellis.sum
+    prevTrellis = prevTrellis.map( _ / alphaSum)
+    logScale   += math.log(alphaSum)
+
     obsItr    = 1
     while (obsItr < obsSeq.length) {
 
       currState = 0
       while (currState < numStates) {
 
-	alpha    = 0.0
+	alphas(currState) = 0.0
 	stateItr = 0
 	while (stateItr < numStates) {
 	  // I should replace the line below with a dot product
-	  alpha    = alpha + prevTrellis(stateItr) * T(stateItr)(currState)
+	  alphas(currState) = alphas(currState) + prevTrellis(stateItr) *
+			      T(stateItr)(currState)
 	  stateItr = stateItr + 1
 	}
 
-	alpha = alpha * A(currState)(obsSeq(obsItr))
-	currTrellis(currState) = alpha
+	alphas(currState) = alphas(currState) * A(currState)(obsSeq(obsItr))
+	currState = currState + 12
+      }
+
+      alphaSum  = alphas.sum
+      currState = 0
+      while(currState < numStates) {
+	currTrellis(currState) = alphas(currState) / alphaSum  // scaling
+	logScale += math.log(alphaSum)
 	currState = currState + 1
       }
 
-      // NOTE: at this point, currTrellis(i) holds the probability of being
-      //       in state i given the first obsIter tokens in obsSeq
+      // NOTE: at this point, currTrellis(i) holds the SCALED probability of
+      //       being in state i given the first obsIter tokens in obsSeq
 
       stateItr = 0
       while (stateItr < numStates) {
@@ -88,18 +102,19 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
       obsItr = obsItr + 1
     }
 
-    var sum  = 0.0
-    stateItr = 0
+    stateItr     = 0
+    var sumProb  = 0.0
     while (stateItr < numStates){
-      sum = sum + currTrellis(stateItr)
+      sumProb += currTrellis(stateItr)
       stateItr = stateItr + 1
     }
 
-    return sum
+    // Now, subtract off scaling
+    return math.log(sumProb) - logScale
   }
 
-  /* FUTURE WORK: 1) Work in log-space
-   *              2) better names!
+  /* FUTURE WORK: 1) Better Names
+   *              2) Make this more functional
    *
    * Implements the Viterbi algorithm for Hmms.  Given an observation sequence
    * and an Hmm, calculate the most likely sequence of states to have
@@ -123,7 +138,8 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     var stateItr  = 0
     while (stateItr < numStates) {
       viterbiPath(stateItr) = new Array[Int](obsSeq.length)
-      prevTrellis(stateItr) = pi(stateItr) * A(stateItr)(obsSeq(obsItr))
+      prevTrellis(stateItr) = math.log(pi(stateItr)) +
+			      math.log(A(stateItr)(obsSeq(obsItr)))
       stateItr += 1
     }
 
@@ -135,11 +151,13 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 
 	stateItr = 0
 	while (stateItr < numStates) {
-	  probOfState(stateItr) = prevTrellis(stateItr)*T(stateItr)(currState)
+	  probOfState(stateItr) = math.log(prevTrellis(stateItr)) +
+				  math.log(T(stateItr)(currState))
 	  stateItr += 1
 	}
 
-	currTrellis(currState) = probOfState.max * A(currState)(obsSeq(obsItr))
+	currTrellis(currState) = math.log(probOfState.max) +
+				 math.log(A(currState)(obsSeq(obsItr)))
 
 	// get index of largest probability
 	viterbiPath(currState)(obsItr) = probOfState.zipWithIndex.max._2
