@@ -20,6 +20,8 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   val numStates  = T.length
   val numActions = A.length
 
+  /* Generate an observation sequence from this Hmm
+   */
   def genObsSeq(steps: Int): Seq[Int] = {
     val observations = new Array[Int](steps)
 
@@ -32,6 +34,14 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     }
 
     return observations
+  }
+
+  /* Functional Version */
+  def genObsSeq_func(steps: Int, currState: Int = inverseSample(pi),
+		     obsSeq: List[Int] = List()): List[Int] = steps match {
+    case 0     => obsSeq.reverse
+    case steps => genObsSeq_func(steps-1, inverseSample(T(currState)),
+				 inverseSample(A(currState)) :: obsSeq)
   }
 
   /* FUTURE WORK: 1) get rid of while loops
@@ -112,6 +122,24 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 
     // Now, reset scaling (at each step we multiply by
     return math.log(sumProb) + logScale
+  }
+
+  /* Just use Scalala */
+  private def column(M: Array[Array[Double]], n: Int, c: List[Double] = List(),
+		     i: Int = 0): List[Double] = {
+    if (i != M.length) column(M, n, M(i)(n)::c, i+1) else c.reverse
+  }
+
+  /* This is just a matrix vector multiply: pre-multiply the current values
+   * in the trellis by the transpose of the transition matrix
+   */
+  private def fwdStep(trellis: List[Double]): List[Double] = {
+    trellis.zipWithIndex.map{ e: (Double,Int) =>
+				  dotProd(trellis,column(T,e._2))}
+  }
+
+  private def dotProd(v1: List[Double], v2: List[Double]): Double = {
+    v1.zip(v2).map{ e:(Double, Double) => e._1 * e._2 }.reduceLeft(_ + _)
   }
 
   /* FUTURE WORK: 1) Better Names
@@ -205,6 +233,11 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     }
     return dSize  // Error!!
   }
+
+  // Functional version
+  private def inverseSample_func(dist: List[Double]): Int = {
+    val sample = rand.nextDouble()
+    dist.scanLeft(0.0)(_+_).zipWithIndex.filter(sample <= _._1).head._2
+  }
+
 }
-
-

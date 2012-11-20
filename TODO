@@ -29,3 +29,6 @@ o Hmm.scala/decode
 
 * Hmm.scala/inverseSample
   - Have it error out if it going through the while loop without returning
+
+* Hmm.scala
+  - Implement using scalala
