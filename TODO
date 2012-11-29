@@ -32,3 +32,6 @@ o Hmm.scala/decode
 
 * Hmm.scala
   - Implement using scalala
+
+* ML-Scala
+  - Build project with sbt
