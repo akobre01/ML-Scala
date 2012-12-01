@@ -13,8 +13,8 @@ import scala.util.Random
 class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 	  val A:  Array[Array[Double]]) {
 
-  assert(T.length == T(0).length) // Assume all rows of T are T(0).length
-  assert(A.length == T.length)
+  require(T.length == T(0).length) // Assume all rows of T are T(0).length
+  require(A.length == T.length)
 
   val rand = new Random()
   val numStates  = T.length
@@ -214,8 +214,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   }
 
   /* TODO: 1) Write better documentation
-   *       2) Finish writing this function
-   *       3) Add smoothing
+   *       2) Add smoothing
    *
    * Given an observation sequence and the set of hidden states that
    * generated the sequence, learn the initial state probabilities,
@@ -235,16 +234,18 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
      }
 
      /* Count the number of times every state transition has been made */
-     (obsSeq.init).zip(obsSeq.tail).map(pair => T(pair._1)(pair._2) += 1)
+     (stateSeq.init).zip(stateSeq.tail).map(pair => T(pair._1)(pair._2) += 1)
 
      /* Count the number of times you observe each output from each state */
-     stateSeq.zip(obsSeq).map(pair => O(pair._1)(pair._2) += 1)
+     obsSeq.zip(obsSeq).map(pair => O(pair._1)(pair._2) += 1)
+     stateSeq.map(s => pi(s) += 1)
 
-     println("I'm not finished yet!")
-     assert(false)
+     /* Normalize rows to makes the counts into probabilities */
+     T.map(row => normalize(row))
+     O.map(row => normalize(row))
+     pi = normalize(pi)
 
      return (pi, T, O)
-
   }
 
   /* Implemenmts inverse transform sampling from an unnormalized distribution
@@ -268,10 +269,14 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     return dSize  // Error!!
   }
 
+  private def normalize(row: Array[Double]): Array[Double] = {
+    val total = row.sum
+    row.map(e => e / total)
+  }
+
   // Functional version
   private def inverseSample_func(dist: List[Double]): Int = {
     val sample = rand.nextDouble()
     dist.scanLeft(0.0)(_+_).zipWithIndex.filter(sample <= _._1).head._2
   }
-
 }
