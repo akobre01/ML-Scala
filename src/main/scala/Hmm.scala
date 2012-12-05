@@ -1,4 +1,5 @@
 import scala.util.Random
+import annotation.tailrec
 /* pi is an M length array of unnormalized initial state probabilities
  * T is an MxM matrix of state transition probabilities (Transition Matrix)
  * A is an MxO matrix of emission probabilities where O is the number
@@ -20,28 +21,12 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   val numStates  = T.length
   val numActions = A.length
 
-  /* Generate an observation sequence from this Hmm
-   */
-  def genObsSeq(steps: Int): Seq[Int] = {
-    val observations = new Array[Int](steps)
-
-    var step = 0
-    var currState = inverseSample(pi)
-    while (step < steps) {
-      observations(step) = inverseSample(A(currState))
-      currState = inverseSample(T(currState))
-      step += 1
-    }
-
-    return observations
-  }
-
-  /* Functional Version */
-  def genObsSeq_func(steps: Int, currState: Int = inverseSample(pi),
-		     obsSeq: List[Int] = List()): List[Int] = steps match {
+  /* Generate an observation sequence from this Hmm */
+  @tailrec final def genObsSeq(steps: Int, currState: Int = inverseSample(pi),
+		obsSeq: List[Int] = List()): List[Int] = steps match {
     case 0     => obsSeq.reverse
-    case steps => genObsSeq_func(steps-1, inverseSample(T(currState)),
-				 inverseSample(A(currState)) :: obsSeq)
+    case steps => genObsSeq(steps-1, inverseSample(T(currState)),
+			    inverseSample(A(currState)) :: obsSeq)
   }
 
   /* FUTURE WORK: 1) get rid of while loops
@@ -134,12 +119,11 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
    * in the trellis by the transpose of the transition matrix
    */
   private def fwdStep(trellis: List[Double]): List[Double] = {
-    trellis.zipWithIndex.map{ e: (Double,Int) =>
-				  dotProd(trellis,column(T,e._2))}
+    trellis.zipWithIndex.map({ case (_,idx) => dotProd(trellis,column(T,idx))})
   }
 
   private def dotProd(v1: List[Double], v2: List[Double]): Double = {
-    v1.zip(v2).map{ e:(Double, Double) => e._1 * e._2 }.reduceLeft(_ + _)
+    v1.zip(v2).map{ case (x1, x2) => x1 * x2 }.reduceLeft(_ + _)
   }
 
   /* FUTURE WORK: 1) Better Names
@@ -234,19 +218,15 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
      }
 
      /* Count the number of times every state transition has been made */
-     (stateSeq.init).zip(stateSeq.tail).map(pair => T(pair._1)(pair._2) += 1)
+     (stateSeq.init).zip(stateSeq.tail).map({ case (t1, t2) => T(t1)(t2) += 1})
 
      /* Count the number of times you observe each output from each state */
-     obsSeq.zip(obsSeq).map(pair => O(pair._1)(pair._2) += 1)
+     obsSeq.zip(obsSeq).map({case (o1, o2) => O(o1)(o2) += 1})
      stateSeq.map(s => pi(s) += 1)
 
      /* Normalize rows to makes the counts into probabilities */
-     T.map(row => normalize(row))
-     O.map(row => normalize(row))
-     pi = normalize(pi)
-
-     return (pi, T, O)
-  }
+     (normalize(pi), T.map(normalize(_)), O.map(normalize(_)))
+   }
 
   /* Implemenmts inverse transform sampling from an unnormalized distribution
    *  return value: random index into dist chosen proportional to the weight
