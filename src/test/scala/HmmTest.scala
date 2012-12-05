@@ -1,56 +1,56 @@
 import scala.util.Random
+import org.scalatest.FunSuite
 
-class HmmTest {
+class HmmTest extends FunSuite {
 
   val rand = new Random()
 
-  def normalize(l: Array[Double]): Array[Double] = {
+  private def normalize(l: Array[Double]): Array[Double] = {
     val sum = l.sum
     l.map(_ / sum)
   }
 
-  // Generate a random NxM matrix with normalized rows
-  def genRandMat(N: Int, M: Int) : Array[Array[Double]] = {
+  /* Generate a random NxM matrix with normalized rows */
+  private def genRandMat(N: Int, M: Int) : Array[Array[Double]] = {
     val T = new Array[Array[Double]](N)
 
-    var i = 0
-    var j = 0
-    while (i < N) {
-      T(i) = new Array[Double](M)
-      j = 0
-      while (j < M) {
-	T(i)(j) = rand.nextDouble()
-	j += 1
-      }
-      T(i) = normalize(T(i))
-      i   += 1
+    for (idx <- 0 to N-1) {
+      T(idx) = normalize(Array.fill(M)(rand.nextDouble()))
     }
 
     return T
   }
 
-  def TEST_Hmm_forward(): Unit = {
+  /* Generate random Hmm */
+  private def genRandHmm(numToks: Int, numStates: Int): Hmm = {
+    val T  = genRandMat(numStates, numStates)
+    val A  = genRandMat(numStates, numToks)
+    val pi = genRandMat(1, numStates)(0)
+
+    return new Hmm(pi, T, A)
+  }
+
+  /* Test randomly generated Hmms:
+   *   1) Generate 2 Hmms
+   *   2) Generate 2 observation strings
+   *   3) Use the decode function to predict which Hmm generated the string
+   */
+  test("Testing the Forward Algorithm") {
     val numToks   = rand.nextInt(5) + 3  // Between 3 and 7 output token types
     val numStates = rand.nextInt(5) + 2
-    val lengthSeq = rand.nextInt(10) + 5
+    val lengthSeq = rand.nextInt(100) + 10000
 
-    val T1  = genRandMat(numStates, numStates)
-    val A1  = genRandMat(numStates, numToks)
-    val pi1 = genRandMat(1, numStates)(0)
-
-    val T2  = genRandMat(numStates, numStates)
-    val A2  = genRandMat(numStates, numToks)
-    val pi2 = genRandMat(1, numStates)(0)
-
-    val Hmm1 = new Hmm(pi1, T1, A1)
-    val Hmm2 = new Hmm(pi2, T2, A2)
+    val Hmm1 = genRandHmm(numToks, numStates)
+    val Hmm2 = genRandHmm(numToks, numStates)
 
     val obsSeq1 = Hmm1.genObsSeq(lengthSeq)
     val obsSeq2 = Hmm2.genObsSeq(lengthSeq)
 
     // This isn't the greatest test...
-    assert(Hmm1.forward(obsSeq1) > Hmm2.forward(obsSeq1))
-    assert(Hmm2.forward(obsSeq2) > Hmm1.forward(obsSeq2))
+    assert(Hmm1.forward(obsSeq1) > Hmm2.forward(obsSeq1), "Sequence " +
+      "generated from Hmm1 more likely to have come from Hmm2")
+    assert(Hmm2.forward(obsSeq2) > Hmm1.forward(obsSeq2), "Sequence " +
+      "generated from Hmm2 more likely to have come from Hmm1")
   }
 
   def TEST_Hmm_decode(): Unit = {

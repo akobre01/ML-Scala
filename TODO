@@ -17,9 +17,12 @@ o Hmm.scala/decode
 	      come from the Hmm that generated it
    - decode:  Design a unit test here...
 
-* Hmm.scala
+o Hmm.scala
    - Implement a learning algorithm for learning parameters (i.e. transition
      and observation matrices)
+
+* Hmm.scala
+   - Implement Baum-welch learning algorithm
 
 * Hmm.scala
   - Make code more functional (avoid all of those nasty while loops)
@@ -33,5 +36,5 @@ o Hmm.scala/decode
 * Hmm.scala
   - Implement using scalala
 
-* ML-Scala
+o ML-Scala
   - Build project with sbt
