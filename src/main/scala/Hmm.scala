@@ -35,9 +35,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     tailRecGenObs(steps)
   }
 
-  /* FUTURE WORK: 1) get rid of while loops
-   *
-   * This function implements the forward algorithm (given a set of
+  /* This function implements the forward algorithm (given a set of
    * observations, it returns the log probability of that set of observations
    * having come from THIS Hmm).
    *
@@ -61,7 +59,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   /* Get a column of any matrix stored in rows */
   private def column[T, M[_]](matrix: M[M[T]], col: Int)
   (implicit v1: M[M[T]] => Seq[M[T]], v2: M[T] => Seq[T]): Seq[T] = {
-    matrix.map{ x => x.toList(col)}
+    matrix.map{ x => x.toList(col) }
   }
 
   /* This is just a matrix vector multiply: pre-multiply the current values
@@ -104,14 +102,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
    (0 to (T.length-1)).map(ind => maxProd(v, column(T, ind))).toList
   }
 
-  /* Take a list of lists and append an element to each list
-   * PRECONDITION: ls.length == l.length */
-  def append2Lists(ls: List[List[Int]], l: List[Int]): List[List[Int]] = {
-    l.zipWithIndex.map{ case(x, idx) => ls(idx) :+ x}
-  }
-
-  /* FUTURE WORK: 1) Better Names
-   *              2) Make this more functional
+  /* FUTURE WORK: 1) Add in log scaling
    *
    * Implements the Viterbi algorithm for Hmms.  Given an observation sequence
    * and an Hmm, calculate the most likely sequence of states to have
@@ -121,7 +112,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
    * observation is an integer less than the total number of distinct
    * observations.
    *
-   * *Invariant: after each iteration, each column in history holds the
+   * Invariant: after each iteration, each column in history holds the
    * sequence of highest probability transition states that end in a
    * particular state with respect to the observation sequence
    * Returns a sequence of ints corresponding to the sequence of most likely
@@ -136,7 +127,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 	val (newLhoods, nextSteps) = maxTransitionProb(lhoods).unzip
 	viterbi(
 	  xs,
-	  newLhoods.zip(column(A, x)).map{ case(a,b) => a * b},
+	  newLhoods.zip(column(A, x)).map{ case(a,b) => a * b },
 	  history :+ nextSteps
 	)
       }
