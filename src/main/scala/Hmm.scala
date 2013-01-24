@@ -110,22 +110,6 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     l.zipWithIndex.map{ case(x, idx) => ls(idx) :+ x}
   }
 
-  /* INVARIANT: after each call to viterbi,
-   *     1) the list returned will have the highest probability of being in the
-   *        corresponding state after n steps
-   *     2) the second list returned will have the previous most likely state
-   *        to have produced that probability
-   */
-  private def viterbiStep(trellis: List[Double],
-			  paths: List[List[Int]]):
-			         (List[Double], List[List[Int]]) = {
-    trellis.zipWithIndex.map{ case(v, idx) =>
-				maxProd(trellis, column(T,idx))
-			     }.unzip match {
-				 case(new_trellis, path) =>
-				   (new_trellis, append2Lists(paths, path))}
-  }
-
   /* FUTURE WORK: 1) Better Names
    *              2) Make this more functional
    *
