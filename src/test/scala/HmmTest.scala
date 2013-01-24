@@ -55,9 +55,9 @@ class HmmTest extends FunSuite {
 
 
     // This isn't the greatest test...
-    assert(Hmm1.forward_func(obsSeq1) > Hmm2.forward_func(obsSeq1), "Sequence " +
+    assert(Hmm1.forward(obsSeq1) > Hmm2.forward(obsSeq1), "Sequence " +
       "generated from Hmm1 more likely to have come from Hmm2")
-    assert(Hmm2.forward_func(obsSeq2) > Hmm1.forward_func(obsSeq2), "Sequence " +
+    assert(Hmm2.forward(obsSeq2) > Hmm1.forward(obsSeq2), "Sequence " +
       "generated from Hmm2 more likely to have come from Hmm1")
   }
 
