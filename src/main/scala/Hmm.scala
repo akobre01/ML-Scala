@@ -24,10 +24,12 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   /* Generate an observation sequence from this Hmm */
   def genObsSeq(steps:Int): List[Int] = {
 
-    def tailRecGenObs(steps:  Int, currState: Int = inverseSample(pi.toList),
+    def tailRecGenObs(steps:  Int,
+		      currState: Int = inverseSample(pi.toList),
 		      obsSeq: List[Int] = List()): List[Int] = steps match {
       case 0     => obsSeq.reverse
-      case steps => tailRecGenObs(steps-1, inverseSample(T(currState).toList),
+      case steps => tailRecGenObs(steps-1,
+				  inverseSample(T(currState).toList),
 				  inverseSample(A(currState).toList) :: obsSeq)
     }
     tailRecGenObs(steps)
@@ -56,10 +58,10 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     fwd_TR(obsSeq)
   }
 
-  /* Just use Scalala */
-  private def column(M: Array[Array[Double]], n: Int, c: List[Double] = List(),
-		     i: Int = 0): List[Double] = {
-    if (i != M.length) column(M, n, M(i)(n)::c, i+1) else c.reverse
+  /* Get a column of any matrix stored in rows */
+  private def column[T, M[_]](matrix: M[M[T]], col: Int)
+  (implicit v1: M[M[T]] => Seq[M[T]], v2: M[T] => Seq[T]): Seq[T] = {
+    matrix.map{ x => x.toList(col)}
   }
 
   /* This is just a matrix vector multiply: pre-multiply the current values
@@ -85,14 +87,21 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     (fwdStep(trellis.map(_ / s),obs), math.log(s))
   }
 
-  private def dotProd(v1: List[Double], v2: List[Double]): Double = {
+  private def dotProd(v1: Seq[Double], v2: Seq[Double]): Double = {
     v1.zip(v2).map{ case (x1, x2) => x1 * x2 }.reduceLeft(_ + _)
   }
 
   /* take the elem wise product of v1 and v2 and return the max product tupled
    * with the corresponding index */
-  private def maxProd(v1: List[Double], v2: List[Double]): (Double, Int) = {
+  private def maxProd(v1: Seq[Double], v2: Seq[Double]): (Double, Int) = {
     v1.zipWithIndex.map{ case(x1, idx) => (x1 * v2(idx),idx)}.sortBy(_._1).last
+  }
+
+  /* calculate the maximum transition probably to each state give a set of
+   * probabilities (of being in each state). Return the probability after
+   * transitioning and the state from which the transition was made */
+  private def maxTransitionProb(v: List[Double]): List[(Double, Int)] = {
+   (0 to (T.length-1)).map(ind => maxProd(v, column(T, ind))).toList
   }
 
   /* Take a list of lists and append an element to each list
@@ -128,84 +137,30 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
    * observation is an integer less than the total number of distinct
    * observations.
    *
+   * *Invariant: after each iteration, each column in history holds the
+   * sequence of highest probability transition states that end in a
+   * particular state with respect to the observation sequence
    * Returns a sequence of ints corresponding to the sequence of most likely
    * states to have produced this sequence
    */
-  def decode_func(obsSeq: Seq[Int]): Seq[Int] = {
+  def decode(obsSeq: Seq[Int]): Seq[Int] = {
 
     def viterbi(obs:     Seq[Int],
-		trellis: List[Double]     = pi.toList,
-		paths:   List[List[Int]]  = List(List())
-		): (List[Double], List[List[Int]]) = obs match {
-
-      case x::xs => { val next_step =
-			  viterbiStep(trellis.zipWithIndex.map{case(e, idx) =>
-				e * A(idx)(x)}, paths)
-		      viterbi(xs,next_step._1, next_step._2)
-		    }
-      case _     => (trellis, paths)
-    }
-
-    viterbi(obsSeq) match {
-      case (probs, paths) => paths(probs.zipWithIndex.sortBy(_._1).last._2)
-    }
-  }
-
-  def decode(obsSeq: Seq[Int]): Seq[Int] = {
-    var prevTrellis = new Array[Double](numStates)
-    var currTrellis = new Array[Double](numStates)
-    var probOfState = new Array[Double](numStates)
-    var viterbiPath = new Array[Array[Int]](numStates)  //optimal path
-
-    var obsItr = 0
-    var currState = 0
-    var stateItr  = 0
-    while (stateItr < numStates) {
-      viterbiPath(stateItr) = new Array[Int](obsSeq.length)
-      prevTrellis(stateItr) = math.log(pi(stateItr)) +
-			      math.log(A(stateItr)(obsSeq(obsItr)))
-      stateItr += 1
-    }
-
-    obsItr = 1
-    while (obsItr < obsSeq.length) {
-
-      currState = 0
-      while (currState < numStates) {
-
-	stateItr = 0
-	while (stateItr < numStates) {
-	  probOfState(stateItr) = math.log(prevTrellis(stateItr)) +
-				  math.log(T(stateItr)(currState))
-	  stateItr += 1
-	}
-
-	currTrellis(currState) = math.log(probOfState.max) +
-				 math.log(A(currState)(obsSeq(obsItr)))
-
-	// get index of largest probability
-	viterbiPath(currState)(obsItr) = probOfState.zipWithIndex.max._2
-	currState += 1
+		lhoods:  List[Double],
+		history: List[List[Int]]): Seq[Int] = obs match {
+      case x::xs => {
+	val (newLhoods, nextSteps) = maxTransitionProb(lhoods).unzip
+	viterbi(
+	  xs,
+	  newLhoods.zip(column(A, x)).map{ case(a,b) => a * b},
+	  history :+ nextSteps
+	)
       }
-
-      stateItr = 0
-      while (stateItr < numStates) {
-	prevTrellis(stateItr) = currTrellis(stateItr)
-	stateItr += 1
-      }
-      obsItr += 1
+      case _ => column(history, lhoods.zipWithIndex.sortBy(_._1).last._2)
     }
 
-    var hiddenStateSeq = new Array[Int](obsSeq.length)
-    var maxProbIndex   = currTrellis.zipWithIndex.max._2
-    obsItr = obsSeq.length - 1
-    while (obsItr >= 0) {
-      hiddenStateSeq(obsItr) = maxProbIndex
-      maxProbIndex = viterbiPath(maxProbIndex)(obsItr)
-      obsItr -= 1
-    }
+    viterbi(obsSeq, pi.toList, List(List()))
 
-    return hiddenStateSeq
   }
 
   /* TODO: 1) Write better documentation
@@ -215,7 +170,8 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
    * generated the sequence, learn the initial state probabilities,
    * the transition matrix and the observation matrix
    */
-   def learn(obsSeq: Seq[Int], stateSeq: Seq[Int]): (Array[Double], Array[Array[Double]], Array[Array[Double]]) = {
+   def learn(obsSeq: Seq[Int], stateSeq: Seq[Int]):
+  (Array[Double], Array[Array[Double]], Array[Array[Double]]) = {
      val numStates = stateSeq.max
      val numObs    = obsSeq.max
 
@@ -239,15 +195,13 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
      (normalize(pi), T.map(normalize(_)), O.map(normalize(_)))
    }
 
-  /* Implemenmts inverse transform sampling from an unnormalized distribution
+  /*  Implements inverse transform sampling from an unnormalized distribution
    *  return value: random index into dist chosen proportional to the weight
    *  stored in that bin (think of dist as an unnormalized multinomial)
    */
-
-  // Functional version
   private def inverseSample(dist: List[Double]): Int = {
     val sample = rand.nextDouble()
-    dist.scanLeft(0.0)(_+_).zipWithIndex.filter(sample <= _._1).head._2
+    dist.scanLeft(0.0)(_+_).tail.zipWithIndex.filter(sample <= _._1).head._2
   }
 
   private def normalize(row: Array[Double]): Array[Double] = {
