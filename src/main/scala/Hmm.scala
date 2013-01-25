@@ -1,5 +1,6 @@
 import scala.util.Random
 import annotation.tailrec
+import math.log
 /* pi is an M length array of unnormalized initial state probabilities
  * T is an MxM matrix of state transition probabilities (Transition Matrix)
  * A is an MxO matrix of emission probabilities where O is the number
@@ -50,8 +51,8 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 	       logSum: Double = 0.0): Double = obsSeq match {
       case x::xs => fwd_TR(xs,
 			   logFwdStep(trellis.toList, x)._1,
-			   logSum + math.log(trellis.sum))
-      case _   => math.log(trellis.sum) + logSum
+			   logSum + log(trellis.sum))
+      case _   => log(trellis.sum) + logSum
     }
     fwd_TR(obsSeq)
   }
@@ -62,7 +63,9 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     matrix.map{ x => x.toList(col) }
   }
 
-  /* This is just a matrix vector multiply: pre-multiply the current values
+  /* FUTURE WORK: Get this working with breeze (as well as the previous)
+   *
+   * This is just a matrix vector multiply: pre-multiply the current values
    * in the trellis by the transpose of the transition matrix, and then a
    * element wise product of the probabilities of being in a particular
    * state times the probability of emitting a vertain token
@@ -80,31 +83,32 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
   }
 
   /* forward step with log scaling */
-  private def logFwdStep(trellis: List[Double], obs:Int): (List[Double], Double) = {
+  private def logFwdStep(trellis: List[Double], obs:Int):
+  (List[Double], Double) = {
     val s = trellis.sum
-    (fwdStep(trellis.map(_ / s),obs), math.log(s))
+    (fwdStep(trellis.map(_ / s),obs), log(s))
   }
 
   private def dotProd(v1: Seq[Double], v2: Seq[Double]): Double = {
     v1.zip(v2).map{ case (x1, x2) => x1 * x2 }.reduceLeft(_ + _)
   }
 
-  /* take the elem wise product of v1 and v2 and return the max product tupled
-   * with the corresponding index */
-  private def maxProd(v1: Seq[Double], v2: Seq[Double]): (Double, Int) = {
-    v1.zipWithIndex.map{ case(x1, idx) => (x1 * v2(idx),idx)}.sortBy(_._1).last
+  /* take the elem wise log product of v1 and v2 and return the max product
+   * tupled with the corresponding index */
+  private def logMaxProd(v1: Seq[Double], v2: Seq[Double]): (Double, Int) = {
+    v1.zipWithIndex.map{
+      case(x, i) => (log(x) + log(v2(i)), i)
+    }.sortBy(_._1).last
   }
 
   /* calculate the maximum transition probably to each state give a set of
    * probabilities (of being in each state). Return the probability after
    * transitioning and the state from which the transition was made */
   private def maxTransitionProb(v: List[Double]): List[(Double, Int)] = {
-   (0 to (T.length-1)).map(ind => maxProd(v, column(T, ind))).toList
+   (0 to (T.length-1)).map(ind => logMaxProd(v, column(T, ind))).toList
   }
 
-  /* FUTURE WORK: 1) Add in log scaling
-   *
-   * Implements the Viterbi algorithm for Hmms.  Given an observation sequence
+  /* Implements the Viterbi algorithm for Hmms.  Given an observation sequence
    * and an Hmm, calculate the most likely sequence of states to have
    * generated the sequence
    *
@@ -127,7 +131,7 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
 	val (newLhoods, nextSteps) = maxTransitionProb(lhoods).unzip
 	viterbi(
 	  xs,
-	  newLhoods.zip(column(A, x)).map{ case(a,b) => a * b },
+	  newLhoods.zip(column(A, x)).map{ case(a,b) => log(a) + log(b) },
 	  history :+ nextSteps
 	)
       }
@@ -135,7 +139,6 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     }
 
     viterbi(obsSeq, pi.toList, List(List()))
-
   }
 
   /* TODO: 1) Write better documentation
@@ -183,5 +186,4 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
     val total = row.sum
     row.map(e => e / total)
   }
-
 }
