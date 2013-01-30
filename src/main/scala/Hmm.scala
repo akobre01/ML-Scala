@@ -36,6 +36,39 @@ class Hmm(val pi: Seq[Double], val T: Array[Array[Double]],
     tailRecGenObs(steps)
   }
 
+  /* Calculate the probability of being in each state given a starting
+   * state (trellis) and after having emitted a given observation sequence.
+   * This function returns the final state tupled with the scaling factor */
+  private def processObsSeqScaled(trellis: Seq[Double] = pi,
+				  obsSeq: Seq[Int]): (Seq[Double], Double) = {
+    obsSeq.foldLeft((trellis, 0.0))(
+      (state: (Seq[Double], Double), obs: Int) =>
+	logFwdStepWithScale(state ,obs))
+  }
+
+  /* Given the current trellis, calculate the probably of transitioning to
+   * a given state (optionally calculate this probably multiplied by the
+   * probability of emitting a particular symbol) */
+  private def probNextState(currTrellis: List[Double],
+			    nextState:   Int): Double =
+	dotProd(currTrellis, column(T,nextState))
+
+  private def probNextState(currTrellis: List[Double],
+			    nextState:   Int,
+			    obs:         Int): Double =
+	probNextState(currTrellis, nextState) * A(nextState)(obs)
+
+
+  /* forward step with log scaling */
+  private def logFwdStepWithScale(state: (Seq[Double], Double),
+				  obs:   Int) :
+  (Seq[Double], Double) = {
+    val (trellis, scale) = state
+    val s = trellis.sum
+    (fwdStep(trellis.toList.map(_ / s),obs), scale + log(s))
+  }
+
+
   /* This function implements the forward algorithm (given a set of
    * observations, it returns the log probability of that set of observations
    * having come from THIS Hmm).
@@ -57,13 +90,18 @@ class Hmm(val pi: Seq[Double], val T: Array[Array[Double]],
     fwd_TR(obsSeq)
   }
 
-  /* alernate implementation of fowrad algorithm using a fold. I'm not sure
+  /* This variation of the forward algorithm handles the case that the user
+   * wants the probably of a given sequence that ends in a particular state */
+  def forward(obsSeq: Seq[Int], endState: Int): Double = {
+    val (trellis, scaling) = processObsSeqScaled(pi, obsSeq.init)
+    probNextState(trellis.toList, endState, obsSeq.last) + scaling
+  }
+
+  /* alernate implementation of foward algorithm using a fold. I'm not sure
    * I like this better */
   def fwd(obsSeq: Seq[Int]): Double = {
-    val (trellis, scale) = obsSeq.foldLeft((pi, 0.0))(
-      (state: (Seq[Double], Double), obs: Int) =>
-	logFwdStepWithScale(state ,obs))
-    log(trellis.sum) + scale
+    val (trellis, scaling) = processObsSeqScaled(pi, obsSeq)
+    log(trellis.sum) + scaling
   }
 
   /* Get a column of any matrix stored in rows */
@@ -89,15 +127,6 @@ class Hmm(val pi: Seq[Double], val T: Array[Array[Double]],
     trellis.zipWithIndex.map{
       case (_,idx) => dotProd(trellis,column(T,idx)) * A(idx)(obs)
     }
-  }
-
-/* forward step with log scaling */
-  private def logFwdStepWithScale(state: (Seq[Double], Double),
-				  obs:   Int) :
-  (Seq[Double], Double) = {
-    val (trellis, scale) = state
-    val s = trellis.sum
-    (fwdStep(trellis.toList.map(_ / s),obs), scale + log(s))
   }
 
   /* forward step with log scaling */
@@ -167,7 +196,7 @@ class Hmm(val pi: Seq[Double], val T: Array[Array[Double]],
    * the transition matrix and the observation matrix
    */
    def learn(obsSeq: Seq[Int], stateSeq: Seq[Int]):
-  (Array[Double], Array[Array[Double]], Array[Array[Double]]) = {
+  (Seq[Double], Array[Array[Double]], Array[Array[Double]]) = {
      val numStates = stateSeq.max
      val numObs    = obsSeq.max
 
