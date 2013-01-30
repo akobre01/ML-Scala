@@ -12,7 +12,7 @@ import math.log
  *
  * Probability matrices may be unnormalized
  */
-class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
+class Hmm(val pi: Seq[Double], val T: Array[Array[Double]],
 	  val A:  Array[Array[Double]]) {
 
   require(T.length == T(0).length) // Assume all rows of T are T(0).length
@@ -52,9 +52,18 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
       case x::xs => fwd_TR(xs,
 			   logFwdStep(trellis.toList, x)._1,
 			   logSum + log(trellis.sum))
-      case _   => log(trellis.sum) + logSum
+      case _     => log(trellis.sum) + logSum
     }
     fwd_TR(obsSeq)
+  }
+
+  /* alernate implementation of fowrad algorithm using a fold. I'm not sure
+   * I like this better */
+  def fwd(obsSeq: Seq[Int]): Double = {
+    val (trellis, scale) = obsSeq.foldLeft((pi, 0.0))(
+      (state: (Seq[Double], Double), obs: Int) =>
+	logFwdStepWithScale(state ,obs))
+    log(trellis.sum) + scale
   }
 
   /* Get a column of any matrix stored in rows */
@@ -77,16 +86,25 @@ class Hmm(val pi: Array[Double], val T: Array[Array[Double]],
    * and having emitted obs
    */
   private def fwdStep(trellis: List[Double], obs: Int): List[Double] = {
-    trellis.zipWithIndex.map({ case (_,idx) =>
-			       dotProd(trellis,column(T,idx)) * A(idx)(obs)
-			    })
+    trellis.zipWithIndex.map{
+      case (_,idx) => dotProd(trellis,column(T,idx)) * A(idx)(obs)
+    }
+  }
+
+/* forward step with log scaling */
+  private def logFwdStepWithScale(state: (Seq[Double], Double),
+				  obs:   Int) :
+  (Seq[Double], Double) = {
+    val (trellis, scale) = state
+    val s = trellis.sum
+    (fwdStep(trellis.toList.map(_ / s),obs), scale + log(s))
   }
 
   /* forward step with log scaling */
-  private def logFwdStep(trellis: List[Double], obs:Int):
-  (List[Double], Double) = {
+  private def logFwdStep(trellis: Seq[Double], obs:Int):
+  (Seq[Double], Double) = {
     val s = trellis.sum
-    (fwdStep(trellis.map(_ / s),obs), log(s))
+    (fwdStep(trellis.toList.map(_ / s),obs), log(s))
   }
 
   private def dotProd(v1: Seq[Double], v2: Seq[Double]): Double = {
