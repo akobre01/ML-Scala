@@ -16,11 +16,12 @@ class MetropolisHastingsSampler[STATE](f: STATE => Double,
   }
 
   def getChainOfLengthN(n: Int, currState: STATE, burnin: Int = 100, thinning: Int = 100): Seq[STATE] = {
-    def helper(n: Int, s: STATE, samples: Seq[STATE] = Seq.empty[STATE]): Seq[STATE] = n match {
-      case 0 => samples
-      case _ => { val ns = nextState(currState); helper(n-1, ns, samples :+ ns) }
-    }
-    helper(burnin + n*thinning, currState).drop(burnin).zipWithIndex.filter({ case (s, ind) => ind % thinning == 0 }).unzip._1
+    (1 until burnin + n * thinning)
+      .scanLeft(currState)((state, _) => nextState(state))       /* generate all samples */
+      .drop(burnin)                                              /* drop burn in */
+      .zipWithIndex                                              /* select thinning */
+      .filter({ case (s, ind) => ind % thinning == 0})
+      .unzip._1
   }
 
 }
