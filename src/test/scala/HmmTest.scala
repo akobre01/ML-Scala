@@ -5,6 +5,17 @@ class HmmTest extends FunSuite {
 
   val rand = new Random()
 
+  /* some vars that can be used in many tests */
+  val numToks   = rand.nextInt(5) + 3  // Between 3 and 7 output token types
+  val numStates = rand.nextInt(5) + 2
+  val lengthSeq = rand.nextInt(100) + 10000
+
+  val Hmm1 = genRandHmm(numToks, numStates)
+  val Hmm2 = genRandHmm(numToks, numStates)
+
+  val obsSeq1 = Hmm1.genObsSeq(lengthSeq)
+  val obsSeq2 = Hmm2.genObsSeq(lengthSeq)
+
   private def normalize(l: Array[Double]): Array[Double] = {
     val sum = l.sum
     l.map(_ / sum)
@@ -33,35 +44,12 @@ class HmmTest extends FunSuite {
   /* Test randomly generated Hmms:
    *   1) Generate 2 Hmms
    *   2) Generate 2 observation strings
-   *   3) Use the decode function to predict which Hmm generated the string
+   *   3) Use the forward function to predict which Hmm generated the string
    */
   test("Testing the Forward Algorithm") {
-    val numToks   = rand.nextInt(5) + 3  // Between 3 and 7 output token types
-    val numStates = rand.nextInt(5) + 2
-    val lengthSeq = rand.nextInt(100) + 10000
-
-    val Hmm1 = genRandHmm(numToks, numStates)
-    val Hmm2 = genRandHmm(numToks, numStates)
-
-    val obsSeq1 = Hmm1.genObsSeq(lengthSeq)
-    val obsSeq2 = Hmm2.genObsSeq(lengthSeq)
-
-    // println(Hmm1.forward(obsSeq1))
-    // println(Hmm1.forward(obsSeq1))
-    // println(Hmm1.forward_func(obsSeq1))
-    // println(Hmm1.forward(obsSeq2))
-    // println(Hmm1.forward(obsSeq2))
-    // println(Hmm1.forward_func(obsSeq2))
-
-
-    // This isn't the greatest test...
     assert(Hmm1.forward(obsSeq1) > Hmm2.forward(obsSeq1), "Sequence " +
       "generated from Hmm1 more likely to have come from Hmm2")
     assert(Hmm2.forward(obsSeq2) > Hmm1.forward(obsSeq2), "Sequence " +
       "generated from Hmm2 more likely to have come from Hmm1")
-  }
-
-  def TEST_Hmm_decode(): Unit = {
-
   }
 }
